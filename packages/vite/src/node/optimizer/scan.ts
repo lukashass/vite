@@ -142,7 +142,10 @@ function globEntries(pattern: string | string[], config: ResolvedConfig) {
     ignore: [
       '**/node_modules/**',
       `**/${config.build.outDir}/**`,
-      `**/__tests__/**`
+      // if there aren't explicit entries, also ignore other common folders
+      ...(config.optimizeDeps.entries
+        ? []
+        : [`**/__tests__/**`, `**/coverage/**`])
     ],
     absolute: true
   })
@@ -460,21 +463,26 @@ function esbuildScanPlugin(
           contents = config.esbuild.jsxInject + `\n` + contents
         }
 
+        const loader =
+          config.optimizeDeps?.esbuildOptions?.loader?.[`.${ext}`] ||
+          (ext as Loader)
+
         if (contents.includes('import.meta.glob')) {
           return transformGlob(
             contents,
             id,
             config.root,
-            ext as Loader,
+            loader,
             resolve,
             config.logger
           ).then((contents) => ({
-            loader: ext as Loader,
+            loader,
             contents
           }))
         }
+
         return {
-          loader: ext as Loader,
+          loader,
           contents
         }
       })

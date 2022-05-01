@@ -101,6 +101,12 @@ export interface DepOptimizationOptions {
    * @experimental
    */
   extensions?: string[]
+  /**
+   * Disables dependencies optimizations
+   * @default false
+   * @experimental
+   */
+  disabled?: boolean
 }
 
 export interface DepOptimizationResult {
@@ -371,7 +377,6 @@ export async function runOptimizeDeps(
       commit() {
         // Write metadata file, delete `deps` folder and rename the `processing` folder to `deps`
         commitProcessingDepsCacheSync()
-        config.logger.info(`No dependencies to bundle. Skipping.\n\n\n`)
       },
       cancel
     }
@@ -412,11 +417,12 @@ export async function runOptimizeDeps(
       try {
         exportsData = parse(entryContent) as ExportsData
       } catch {
+        const loader = esbuildOptions.loader?.[path.extname(filePath)] || 'jsx'
         debug(
-          `Unable to parse dependency: ${id}. Trying again with a JSX transform.`
+          `Unable to parse dependency: ${id}. Trying again with a ${loader} transform.`
         )
         const transformed = await transformWithEsbuild(entryContent, filePath, {
-          loader: 'jsx'
+          loader
         })
         // Ensure that optimization won't fail by defaulting '.js' to the JSX parser.
         // This is useful for packages such as Gatsby.
@@ -439,7 +445,7 @@ export async function runOptimizeDeps(
   }
 
   const define: Record<string, string> = {
-    'process.env.NODE_ENV': JSON.stringify(config.mode)
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || config.mode)
   }
   for (const key in config.define) {
     const value = config.define[key]
@@ -784,7 +790,7 @@ export function getDepHash(config: ResolvedConfig): string {
   // only a subset of config options that can affect dep optimization
   content += JSON.stringify(
     {
-      mode: config.mode,
+      mode: process.env.NODE_ENV || config.mode,
       root: config.root,
       define: config.define,
       resolve: config.resolve,

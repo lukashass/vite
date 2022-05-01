@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { untilUpdated, isBuild, testDir } from '../../testUtils'
+import { untilUpdated, isBuild, testDir } from '../../../testUtils'
 import type { Page } from 'playwright-chromium'
 
 test('normal', async () => {
@@ -51,8 +51,12 @@ test.concurrent.each([[true], [false]])('shared worker', async (doTick) => {
   await waitSharedWorkerTick(page)
 })
 
-test('worker emitted', async () => {
-  await untilUpdated(() => page.textContent('.nested-worker'), 'pong')
+test('worker emitted and import.meta.url in nested worker (serve)', async () => {
+  expect(await page.textContent('.nested-worker')).toMatch('/worker-nested')
+  expect(await page.textContent('.nested-worker-module')).toMatch('/sub-worker')
+  expect(await page.textContent('.nested-worker-constructor')).toMatch(
+    '"type":"constructor"'
+  )
 })
 
 if (isBuild) {
@@ -79,6 +83,15 @@ if (isBuild) {
     expect(content).toMatch(`(window.URL||window.webkitURL).createObjectURL`)
     expect(content).toMatch(`window.Blob`)
   })
+
+  test('worker emitted and import.meta.url in nested worker (build)', async () => {
+    expect(await page.textContent('.nested-worker-module')).toMatch(
+      '"type":"module"'
+    )
+    expect(await page.textContent('.nested-worker-constructor')).toMatch(
+      '"type":"constructor"'
+    )
+  })
 }
 
 test('module worker', async () => {
@@ -90,4 +103,8 @@ test('module worker', async () => {
 test('classic worker', async () => {
   expect(await page.textContent('.classic-worker')).toMatch('A classic')
   expect(await page.textContent('.classic-shared-worker')).toMatch('A classic')
+})
+
+test('import.meta.globEager in worker', async () => {
+  expect(await page.textContent('.importMetaGlobEager-worker')).toMatch('["')
 })
